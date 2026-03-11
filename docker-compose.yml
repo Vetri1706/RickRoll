@@ -1,0 +1,62 @@
+version: '3.9'
+
+services:
+  api:
+    build: .
+    container_name: trend_meme_ai_api
+    ports:
+      - '8000:8000'
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    build: .
+    container_name: trend_meme_ai_worker
+    command: celery -A trend_meme_ai.scheduler.celery_worker.celery_app worker --loglevel=info
+    env_file:
+      - .env
+    depends_on:
+      - api
+      - redis
+      - db
+
+  beat:
+    build: .
+    container_name: trend_meme_ai_beat
+    command: celery -A trend_meme_ai.scheduler.celery_worker.celery_app beat --loglevel=info
+    env_file:
+      - .env
+    depends_on:
+      - worker
+
+  redis:
+    image: redis:7
+    container_name: trend_meme_ai_redis
+    ports:
+      - '6379:6379'
+
+  db:
+    image: postgres:16
+    container_name: trend_meme_ai_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: trend_meme_ai
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: trend_meme_ai_n8n
+    ports:
+      - '5678:5678'
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
